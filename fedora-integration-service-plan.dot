@@ -1,0 +1,81 @@
+@startuml
+
+package "External Service Plugins" {
+  package "GitLab.com" {
+    [Fedora Integration]
+  }
+  package "GitHub.com" {
+    [Fedora Integration App]
+  }
+  package "Other integrations ..." {
+    [...]
+  }
+}
+
+package "The Integration Service" {
+  package "Bus connector" {
+    [Bus listener]
+    [Bus emitter]
+  }
+
+  [Webhook listener]
+
+  package "Integration Service Plugins" {
+    package "GitLab.com plugin" {
+      [GitLab webhook2msg]
+      [GitLab reaction2service]
+
+      note left of "GitLab webhook2msg"
+      Using the plugin API (DB)
+      generates an unique **EventID**
+      end note
+
+      note right of "GitLab reaction2service"
+      Using **ReactsOn** field
+      (the original event in DB)
+      and response data we can
+      transform the message to an
+      appropriate reaction.
+      end note
+    }
+
+    package "GitHub.com plugin" {
+        [GitHub reaction2service]
+        [GitHub webhook2msg]
+    }
+  }
+}
+
+package "Fedora Bus" {
+  [AMQP fedora-messaging]
+}
+
+package "Fedora Services" {
+  [Fedora CI]
+  [BuildSystem]
+  [Other event reactors]
+
+  note right of "Other event reactors"
+  Knowing the original **EventID** which
+  triggered the build, we can set
+  **ReactsOn=EventID** flag on
+  the response message.
+  end note
+}
+
+[Fedora Integration App] --> [Webhook listener]
+[Fedora Integration] --> [Webhook listener]
+[AMQP fedora-messaging] -up-> [Bus listener]
+
+[AMQP fedora-messaging] <--> [BuildSystem]
+[AMQP fedora-messaging] <--> [Fedora CI]
+[AMQP fedora-messaging] <--> [Other event reactors]
+
+[Webhook listener] --> [GitLab webhook2msg]
+[Webhook listener] --> [GitHub webhook2msg]
+[GitLab webhook2msg] -down-> [Bus emitter]
+[Bus listener] -up-> [GitLab reaction2service]
+[GitLab reaction2service] --> [Fedora Integration]
+[Bus emitter] --> [AMQP fedora-messaging]
+
+@enduml
